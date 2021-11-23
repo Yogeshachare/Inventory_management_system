@@ -37,7 +37,18 @@ class Admin:
     def deleteProduct(self,id):
         cursor.execute("Delete from products where product_id = %s", (id))
         connect.commit()
-        return "Deleted successfully"    
+        return "Deleted successfully" 
+
+    def showOrders(self): 
+        cursor.execute("select * from orders")
+        result = cursor.fetchall()
+        if len(result) < 1:
+            return print("There are no orders")
+        head = ["order_id ", "user_id", "product_id ", "product_name ", "quantity", "price"]
+        mydata = []
+        for i in result:
+            mydata.append([i[0], i[1], i[2], i[3], i[4], i[5]])
+        print(tabulate(mydata, headers=head, tablefmt="grid"))    
 
 
 class User:
@@ -74,8 +85,13 @@ class User:
             q = cursor.fetchall()
             quanFromCart = q[0][0]
             x = quanFromCart + productQuantity
-            cursor.execute("Update cart set productQuantity = %s, totalPrice = %s", (x, (x * int(productPrice))))
-            connect.commit()
+            cursor.execute("select product_Quantity from products where product_id = %s", (productId))
+            res6 = cursor.fetchall()
+            if res6[0][0] >= x:
+                cursor.execute("Update cart set productQuantity = %s, totalPrice = %s", (x, (x * int(productPrice))))
+                connect.commit()
+            else:
+                return print("Enter quantity as per the products available quantity ")    
         else:
             cursor.execute("Insert into cart(userId, productId, productName, productQuantity, totalPrice) values(%s,%s,%s,%s,%s)", (userId, productId, productName, productQuantity, (int(productPrice) * productQuantity)))
             connect.commit()
@@ -107,9 +123,19 @@ class User:
             product_Quantity = i[4]
             product_price = i[5]
             cursor.execute("Insert into orders (user_id, product_id, product_name, quantity, price) values (%s,%s,%s,%s,%s)", (user_id, productId, product_Name, product_Quantity, product_price))
-            connect.commit  
+            connect.commit
+        cursor.execute("Select product_Quantity from products where product_id = %s", (productId))
+        res2 = cursor.fetchall()
+        mainProdQuan = res2[0][0]   
+        cursor.execute("Update products set product_Quantity = %s where product_id = %s",((mainProdQuan - product_Quantity), productId))      
         cursor.execute("Delete from cart where (userId = %s)",(userId))
         connect.commit()
+        cursor.execute("Select product_Quantity from products where product_id = %s", (productId))
+        res4 = cursor.fetchall()
+        proQua = res4[0][0]
+        if proQua < 1:
+            cursor.execute("Delete from products where product_id = %s",(productId))
+        connect.commit()    
         return "successfully confirmed order"   
 
     def removeProduct(self, remProductId):
@@ -121,8 +147,27 @@ class User:
         cursor.execute("Select product_price from products where product_id = %s", (lessenId))
         res1 = cursor.fetchall()
         proPrice = res1[0][0]
-        cursor.execute("Update cart set productQuantity = %s, totalPrice = %s where productId = %s", (lessenQuant, (int(proPrice) * lessenQuant), lessenId))
-        connect.commit()
+        cursor.execute("select product_Quantity from products where product_id = %s", (lessenId))
+        res6 = cursor.fetchall()
+        if res6[0][0] >= lessenQuant:
+            cursor.execute("Update cart set productQuantity = %s, totalPrice = %s where productId = %s", (lessenQuant, (int(proPrice) * lessenQuant), lessenId))
+            connect.commit()
+        else: 
+            return print("Enter quantity as per the products available quantity")    
+
+    def showOrdersUser(self, username):
+        cursor.execute("Select id from users where username = %s", (username))
+        res3 = cursor.fetchall()
+        userId = res3[0][0]
+        cursor.execute("Select * from orders where user_id = %s", (userId))
+        result = cursor.fetchall()
+        if len(result) < 1:
+            return print("There are no orders")    
+        head = ["order_id ", "user_id", "product_id ", "product_name ", "quantity", "price"]
+        mydata = []
+        for i in result:
+            mydata.append([i[0], i[1], i[2], i[3], i[4], i[5]])
+        print(tabulate(mydata, headers=head, tablefmt="grid"))    
 
 #Register
 def register(name, password, phone, address):
@@ -174,7 +219,9 @@ while True:
                             print(admin.updateProduct(updateProId, updateProName, updateProPrice, updateProQuantity, updateProDesc))
                         elif addUpdateDel == "D":
                             DelProductId = int(input("Enter Product id to Delete"))
-                            print(admin.deleteProduct(DelProductId))    
+                            print(admin.deleteProduct(DelProductId)) 
+                elif adminInput == "O":
+                    admin.showOrders()               
         else:
             print("You have entered wrong credentials")   
 # user
@@ -197,9 +244,9 @@ while True:
                 print("You have successFully logged In")
                 customerOrd = ""
                 while customerOrd != "B":
-                    print("O - Order")
+                    print("O - Order Products")
                     print("Cart - C")
-                    print("T - Track Order")
+                    print("S - See Orders")
                     print("B - Go Back")
                     customerOrd = input("Enter From above: ")
                     if customerOrd == "O":
@@ -231,7 +278,9 @@ while True:
                             elif cartInput == "CH":
                                 lessenId = int(input("Enter Product Id: "))
                                 lessenQuant = int(input("Enter new Quantity: "))
-                                user.lessenQuantity(lessenId, lessenQuant)        
+                                user.lessenQuantity(lessenId, lessenQuant)  
+                    elif customerOrd == "S":
+                        user.showOrdersUser(oldUserName)                  
 
             else:
                 print("You have entered wrong credentials")
